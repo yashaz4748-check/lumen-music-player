@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumen</title>
+  <style>
+    :root {
+      --bg: #000;
+      --card: #1c1c1e;
+      --text: #f5f5f7;
+      --muted: #8e8e93;
+      --accent: #fa233b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 140px;
+    }
+    h1 { font-size: 28px; letter-spacing: -0.4px; }
+    p.sub { color: var(--muted); margin: 6px 0 20px; font-size: 14px; }
+    .top {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    button, label.btn {
+      background: var(--card);
+      color: var(--text);
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    input[type="file"] { display: none; }
+    .list { display: grid; gap: 8px; margin-top: 16px; }
+    .track {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      cursor: pointer;
+    }
+    .track.active { outline: 1px solid #333; }
+    .art {
+      width: 48px; height: 48px; border-radius: 8px;
+      background: linear-gradient(135deg, #ff375f, #5e5ce6);
+      flex: 0 0 48px;
+    }
+    .meta { min-width: 0; }
+    .meta b, .now b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .meta span, .now span { color: var(--muted); font-size: 13px; }
+    .player {
+      position: fixed; left: 12px; right: 12px; bottom: 12px;
+      background: rgba(28,28,30,.92);
+      backdrop-filter: blur(16px);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .now { flex: 1; min-width: 0; }
+    .controls { display: flex; gap: 8px; }
+    .controls button { width: 40px; height: 40px; border-radius: 50%; }
+    input[type="range"] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>Listen Now</h1>
+      <p class="sub">Local files only · no ads · your library</p>
+    </div>
+    <label class="btn">
+      Add Songs
+      <input id="files" type="file" accept="audio/*" multiple />
+    </label>
+  </div>
+
+  <div id="list" class="list"></div>
+
+  <div class="player">
+    <div class="row">
+      <div class="art"></div>
+      <div class="now">
+        <b id="title">No song</b>
+        <span id="artist">Add audio files to start</span>
+      </div>
+      <div class="controls">
+        <button id="prev" type="button">‹</button>
+        <button id="play" type="button">▶</button>
+        <button id="next" type="button">›</button>
+      </div>
+    </div>
+    <input id="seek" type="range" min="0" max="100" value="0" />
+    <audio id="audio"></audio>
+  </div>
+
+  <script>
+    const filesInput = document.getElementById("files");
+    const listEl = document.getElementById("list");
+    const audio = document.getElementById("audio");
+    const title = document.getElementById("title");
+    const artist = document.getElementById("artist");
+    const playBtn = document.getElementById("play");
+    const seek = document.getElementById("seek");
+
+    let tracks = [];
+    let index = -1;
+
+    filesInput.addEventListener("change", (e) => {
+      const files = [...e.target.files];
+      tracks = files.map((file) => ({
+        name: file.name.replace(/\.[^/.]+$/, ""),
+        url: URL.createObjectURL(file),
+      }));
+      render();
+      if (tracks.length) playAt(0);
+    });
+
+    function render() {
+      listEl.innerHTML = tracks.map((t, i) => `
+        <div class="track ${i === index ? "active" : ""}" data-index="${i}">
+          <div class="art"></div>
+          <div class="meta">
+            <b>${t.name}</b>
+            <span>On this device</span>
+          </div>
+        </div>
+      `).join("");
+
+      listEl.querySelectorAll(".track").forEach((el) => {
+        el.addEventListener("click", () => playAt(Number(el.dataset.index)));
+      });
+    }
+
+    function playAt(i) {
+      index = i;
+      audio.src = tracks[i].url;
+      audio.play();
+      title.textContent = tracks[i].name;
+      artist.textContent = "Local file";
+      playBtn.textContent = "❚❚";
+      render();
+    }
+
+    playBtn.onclick = () => {
+      if (!audio.src) return;
+      if (audio.paused) { audio.play(); playBtn.textContent = "❚❚"; }
+      else { audio.pause(); playBtn.textContent = "▶"; }
+    };
+    document.getElementById("prev").onclick = () => {
+      if (index > 0) playAt(index - 1);
+    };
+    document.getElementById("next").onclick = () => {
+      if (index < tracks.length - 1) playAt(index + 1);
+    };
+    audio.ontimeupdate = () => {
+      if (audio.duration) seek.value = (audio.currentTime / audio.duration) * 100;
+    };
+    seek.oninput = () => {
+      if (audio.duration) audio.currentTime = (seek.value / 100) * audio.duration;
+    };
+    audio.onended = () => {
+      if (index < tracks.length - 1) playAt(index + 1);
+    };
+  </script>
+</body>
+</html>
